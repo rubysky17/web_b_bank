@@ -1,0 +1,181 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Colors follow the mobile app (HeroUI Native tokens + Figma "Q Bank — Mobile" v2 brand layer),
+ * exposed under shadcn/ui's token names so `npx shadcn add <component>` works as is.
+ *
+ * Extra tokens on top of shadcn:
+ * - success / warning (+ danger = destructive), each with `-soft` (tinted fill) and
+ *   `-soft-foreground` (text on that fill); `primary-soft` likewise.
+ * - chart-1…5 (+ `-soft`): series colors. Green and red stay reserved for correct and wrong.
+ * - brand-start / brand-end / brand-glow: the blue → violet gradient; on-brand-*: content on it.
+ */
+:root {
+  --radius: 0.75rem;
+
+  --background: oklch(0.9702 0 0);
+  --foreground: oklch(0.2103 0.0059 285.89);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.6204 0.195 253.83);
+  --primary-foreground: oklch(0.9911 0 0);
+  --secondary: oklch(0.9524 0.0013 286.37);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.9524 0.0013 286.37);
+  --muted-foreground: oklch(0.5517 0.0138 285.94);
+  --accent: oklch(0.9373 0.0013 286.37);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.6532 0.2328 25.74);
+  --destructive-foreground: oklch(0.9911 0 0);
+  --success: oklch(0.7329 0.1935 150.81);
+  --warning: oklch(0.7819 0.1585 72.33);
+  --border: oklch(0.9 0.004 286.32);
+  --input: oklch(0.9 0.004 286.32);
+  --ring: var(--primary);
+  --separator: oklch(0.74 0.004 286.32);
+
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #6250d6;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-1-soft: #2a78d61f;
+  --chart-2-soft: #eb68341f;
+  --chart-3-soft: #6250d61f;
+  --chart-4-soft: #eda1001f;
+  --chart-5-soft: #e87ba41f;
+
+  --brand-start: #0485f7;
+  --brand-end: #6250d6;
+  --brand-glow: #8fc4ff;
+  --on-brand: #ffffff;
+  --on-brand-muted: #ffffffb3;
+  --on-brand-subtle: #ffffff2e;
+  --on-brand-faint: #ffffff1a;
+  --on-brand-track: #ffffff40;
+}
+
+.dark {
+  --background: oklch(0.12 0.005 285.823);
+  --foreground: oklch(0.9911 0 0);
+  --card: oklch(0.2103 0.0059 285.89);
+  --popover: oklch(0.2103 0.0059 285.89);
+  --secondary: oklch(0.257 0.0037 286.14);
+  --muted: oklch(0.257 0.0037 286.14);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.2721 0.0024 247.91);
+  --destructive: oklch(0.594 0.1967 24.63);
+  --warning: oklch(0.8203 0.1388 76.34);
+  --border: oklch(0.28 0.006 286.033);
+  --input: oklch(0.28 0.006 286.033);
+  --separator: oklch(0.4 0.006 286.033);
+
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #9085e9;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-1-soft: #3987e529;
+  --chart-2-soft: #d9592629;
+  --chart-3-soft: #9085e929;
+  --chart-4-soft: #c9850029;
+  --chart-5-soft: #d5518129;
+
+  --brand-start: #1f8fff;
+  --brand-end: #7c6cf0;
+  --brand-glow: #3b5bdb;
+}
+
+@theme inline {
+  --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-separator: var(--separator);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-primary-soft: color-mix(in oklab, var(--primary) 15%, transparent);
+  --color-primary-soft-foreground: color-mix(in oklab, var(--primary) 80%, var(--foreground) 20%);
+  --color-success-soft: color-mix(in oklab, var(--success) 15%, transparent);
+  --color-success-soft-foreground: color-mix(in oklab, var(--success) 70%, var(--foreground) 30%);
+  --color-warning-soft: color-mix(in oklab, var(--warning) 15%, transparent);
+  --color-warning-soft-foreground: color-mix(in oklab, var(--warning) 65%, var(--foreground) 35%);
+  --color-destructive-soft: color-mix(in oklab, var(--destructive) 15%, transparent);
+  --color-destructive-soft-foreground: color-mix(
+    in oklab,
+    var(--destructive) 80%,
+    var(--foreground) 20%
+  );
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-1-soft: var(--chart-1-soft);
+  --color-chart-2-soft: var(--chart-2-soft);
+  --color-chart-3-soft: var(--chart-3-soft);
+  --color-chart-4-soft: var(--chart-4-soft);
+  --color-chart-5-soft: var(--chart-5-soft);
+
+  --color-brand-start: var(--brand-start);
+  --color-brand-end: var(--brand-end);
+  --color-brand-glow: var(--brand-glow);
+  --color-on-brand: var(--on-brand);
+  --color-on-brand-muted: var(--on-brand-muted);
+  --color-on-brand-subtle: var(--on-brand-subtle);
+  --color-on-brand-faint: var(--on-brand-faint);
+  --color-on-brand-track: var(--on-brand-track);
+}
+
+@utility bg-brand-gradient {
+  background-image: linear-gradient(135deg, var(--brand-start), var(--brand-end));
+}
+
+@utility bg-brand-gradient-x {
+  background-image: linear-gradient(90deg, var(--brand-start), var(--brand-end));
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+}
