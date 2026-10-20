@@ -7,6 +7,9 @@ import { LoadingView } from '@/components/app/states';
 import { TopBar } from '@/components/app/top-bar';
 import { FocusPage } from '@/components/layout/app-shell';
 import { Button } from '@/components/ui/button';
+import { NoteModeBanner, NoteToggle } from '@/components/vocab/note-toggle';
+import { VocabScope } from '@/components/vocab/vocab-scope';
+import { setNoteMode } from '@/components/vocab/vocab-ui-store';
 import {
   dispatchAttempt,
   getSession,
@@ -45,6 +48,13 @@ export function SectionedAttemptScreen({ id }: { id: string }) {
     }
   }, [id, phase, state?.closing]);
 
+  // Noting words is not an attempt action: it only needs the question on screen and the clock
+  // running (paused, the overlay hides the question).
+  const canNote = phase === 'IN_SECTION' && (getSession(id)?.isRunning ?? false);
+  useEffect(() => {
+    if (!canNote) setNoteMode(false);
+  }, [canNote]);
+
   // Handed in, or already uploaded and forgotten by the device (same element, so it stays mounted
   // while the session disappears): FinishScreen uploads it and navigates away.
   if (!state || !snapshot || state.closing !== null) {
@@ -71,31 +81,37 @@ export function SectionedAttemptScreen({ id }: { id: string }) {
   }
 
   return (
-    <FocusPage>
-      <TopBar
-        title={working && section ? sectionTitle(section.order) : state.examTitle}
-        subtitle={working ? state.examTitle : undefined}
-        fallback={`/exams/${state.examId}`}
-        accessory={
-          working ? (
-            <HeaderClock
-              attemptId={id}
-              isRunning={isRunning}
-              onPause={() => withSession(id, (s) => s.pause())}
-            />
-          ) : null
-        }
-      />
-      {body}
-      {working && !isRunning ? (
-        <PauseOverlay
-          attemptId={id}
-          examId={state.examId}
-          sectionTitle={section ? sectionTitle(section.order) : ''}
-          onResume={() => withSession(id, (s) => s.resume())}
+    <VocabScope sourceTitle={state.examTitle}>
+      <FocusPage>
+        <TopBar
+          title={working && section ? sectionTitle(section.order) : state.examTitle}
+          subtitle={working ? state.examTitle : undefined}
+          fallback={`/exams/${state.examId}`}
+          accessory={
+            working ? (
+              <div className="flex items-center gap-2">
+                {canNote ? <NoteToggle /> : null}
+                <HeaderClock
+                  attemptId={id}
+                  isRunning={isRunning}
+                  onPause={() => withSession(id, (s) => s.pause())}
+                />
+              </div>
+            ) : null
+          }
         />
-      ) : null}
-    </FocusPage>
+        {canNote ? <NoteModeBanner /> : null}
+        {body}
+        {working && !isRunning ? (
+          <PauseOverlay
+            attemptId={id}
+            examId={state.examId}
+            sectionTitle={section ? sectionTitle(section.order) : ''}
+            onResume={() => withSession(id, (s) => s.resume())}
+          />
+        ) : null}
+      </FocusPage>
+    </VocabScope>
   );
 }
 

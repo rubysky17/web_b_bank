@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { getDeviceInfo } from '@/lib/device';
 import { useAuthStore } from '@/stores/auth-store';
+import { clearVocabUser, useVocabStore } from '@/stores/vocab-store';
 
 import { api, endSession } from './client';
 import { queryKeys } from './query-keys';
@@ -119,6 +120,8 @@ export function useDeleteAccount() {
     mutationFn: async (password: string) => {
       const { reauthToken } = await reauth(password);
       await api.delete('auth/me', { json: { reauthToken } });
+      const userId = useVocabStore.getState().userId;
+      if (userId) clearVocabUser(userId);
       await endSession();
     },
   });

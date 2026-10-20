@@ -17,6 +17,8 @@ import type { CaseStudy, Difficulty, QuestionMedia as Media } from '@/api/attemp
 import { IconTile } from '@/components/app/icon-tile';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VocabText } from '@/components/vocab/vocab-text';
+import { useNoteMode } from '@/components/vocab/vocab-ui-store';
 import { API_ORIGIN } from '@/lib/env';
 import { cn } from '@/lib/utils';
 import { optionLetter } from '@/utils/format-duration';
@@ -34,7 +36,10 @@ export * from './answer-model';
 /** Images are served next to the API (`/media/...`), not under `/api/v1`. */
 export const mediaUri = (url: string) => (url.startsWith('/') ? `${API_ORIGIN}${url}` : url);
 
-/** Question texts keep the source's paragraphs (blank lines) and line breaks (tables, lists). */
+/**
+ * Question texts keep the source's paragraphs (blank lines) and line breaks (tables, lists). Each
+ * paragraph is a vocabulary block: noted terms are underlined, and can be noted in note mode.
+ */
 export function Paragraphs({
   text,
   size = 'base',
@@ -51,13 +56,14 @@ export function Paragraphs({
         // Paragraphs never reorder: the index is a stable key.
         <p
           key={index}
+          data-vocab-block
           className={cn(
             'leading-relaxed whitespace-pre-line',
             size === 'sm' ? 'text-sm' : 'text-[15px] md:text-base',
             weight === 'medium' && 'font-medium',
           )}
         >
-          {paragraph}
+          <VocabText text={paragraph} />
         </p>
       ))}
     </div>
@@ -346,6 +352,7 @@ function OptionRow({
   onEliminate,
 }: OptionRowProps) {
   const { t } = useTranslation();
+  const noteMode = useNoteMode();
   const tone =
     mark === 'correct'
       ? 'border-success bg-success-soft'
@@ -353,7 +360,28 @@ function OptionRow({
         ? 'border-destructive bg-destructive-soft'
         : isPicked
           ? 'border-primary bg-primary-soft'
-          : 'border-border bg-card hover:border-primary/50';
+          : cn('border-border bg-card', !noteMode && 'hover:border-primary/50');
+  const body = (
+    <>
+      <span
+        className={cn(
+          'flex size-8 shrink-0 items-center justify-center font-semibold select-none',
+          isMulti ? 'rounded-lg' : 'rounded-full',
+          isPicked ? 'bg-primary text-primary-foreground' : 'bg-secondary',
+        )}
+      >
+        {letter}
+      </span>
+      <span
+        data-vocab-block
+        className={cn('flex-1 leading-relaxed', isEliminated && 'line-through')}
+      >
+        <VocabText text={content} />
+      </span>
+      {mark === 'correct' ? <CircleCheck className="size-[22px] shrink-0 text-success" /> : null}
+      {mark === 'wrong' ? <CircleX className="size-[22px] shrink-0 text-destructive" /> : null}
+    </>
+  );
 
   return (
     <div
@@ -363,29 +391,28 @@ function OptionRow({
         isEliminated && 'opacity-50',
       )}
     >
-      <button
-        type="button"
-        role={isMulti ? 'checkbox' : 'radio'}
-        aria-checked={isPicked}
-        disabled={onPress === undefined}
-        onClick={onPress}
-        className="flex min-w-0 flex-1 items-center gap-3 p-4 text-left disabled:cursor-default"
-      >
-        <span
-          className={cn(
-            'flex size-8 shrink-0 items-center justify-center font-semibold',
-            isMulti ? 'rounded-lg' : 'rounded-full',
-            isPicked ? 'bg-primary text-primary-foreground' : 'bg-secondary',
-          )}
+      {noteMode ? (
+        // Note mode: text inside a button can't be selected, and selecting must not answer.
+        <div
+          role={isMulti ? 'checkbox' : 'radio'}
+          aria-checked={isPicked}
+          aria-disabled
+          className="flex min-w-0 flex-1 cursor-text items-center gap-3 p-4 text-left select-text"
         >
-          {letter}
-        </span>
-        <span className={cn('flex-1 leading-relaxed', isEliminated && 'line-through')}>
-          {content}
-        </span>
-        {mark === 'correct' ? <CircleCheck className="size-[22px] shrink-0 text-success" /> : null}
-        {mark === 'wrong' ? <CircleX className="size-[22px] shrink-0 text-destructive" /> : null}
-      </button>
+          {body}
+        </div>
+      ) : (
+        <button
+          type="button"
+          role={isMulti ? 'checkbox' : 'radio'}
+          aria-checked={isPicked}
+          disabled={onPress === undefined}
+          onClick={onPress}
+          className="flex min-w-0 flex-1 items-center gap-3 p-4 text-left disabled:cursor-default"
+        >
+          {body}
+        </button>
+      )}
       {onEliminate ? (
         <button
           type="button"
@@ -422,6 +449,7 @@ type MatchingViewProps = {
  */
 function MatchingView({ input, answer, onChange, solution }: MatchingViewProps) {
   const { t } = useTranslation();
+  const noteMode = useNoteMode();
   const [activeTarget, setActiveTarget] = useState<string | null>(null);
   const pairs = answer && 'pairs' in answer ? answer.pairs : {};
   const choiceById = new Map(input.choices.map((choice) => [choice.id, choice]));
@@ -448,35 +476,50 @@ function MatchingView({ input, answer, onChange, solution }: MatchingViewProps) 
               : isActive
                 ? 'border-primary bg-primary-soft'
                 : 'border-border bg-card';
+        const header = (
+          <>
+            <span className="text-sm leading-5">
+              {`${index + 1}. `}
+              <span data-vocab-block>
+                <VocabText text={target.content} />
+              </span>
+            </span>
+            <span className="flex items-center gap-2">
+              <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+              <span
+                className={cn(
+                  'flex-1',
+                  placed ? 'font-semibold text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {placed ? placed.content : t('question.pickChoice')}
+              </span>
+              {mark === 'correct' ? <CircleCheck className="size-[22px] text-success" /> : null}
+              {mark === 'wrong' ? <CircleX className="size-[22px] text-destructive" /> : null}
+            </span>
+            {mark === 'wrong' && expected ? (
+              <span className="text-sm font-semibold text-success-soft-foreground">
+                {t('question.correctIs', { answer: expected.content })}
+              </span>
+            ) : null}
+          </>
+        );
         return (
           <div key={target.id} className={cn('flex flex-col gap-3 rounded-2xl border-2 p-4', tone)}>
-            <button
-              type="button"
-              disabled={onChange === undefined}
-              onClick={() => setActiveTarget(isActive ? null : target.id)}
-              aria-expanded={isActive}
-              className="flex flex-col gap-2 text-left disabled:cursor-default"
-            >
-              <span className="text-sm leading-5">{`${index + 1}. ${target.content}`}</span>
-              <span className="flex items-center gap-2">
-                <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                <span
-                  className={cn(
-                    'flex-1',
-                    placed ? 'font-semibold text-foreground' : 'text-muted-foreground',
-                  )}
-                >
-                  {placed ? placed.content : t('question.pickChoice')}
-                </span>
-                {mark === 'correct' ? <CircleCheck className="size-[22px] text-success" /> : null}
-                {mark === 'wrong' ? <CircleX className="size-[22px] text-destructive" /> : null}
-              </span>
-              {mark === 'wrong' && expected ? (
-                <span className="text-sm font-semibold text-success-soft-foreground">
-                  {t('question.correctIs', { answer: expected.content })}
-                </span>
-              ) : null}
-            </button>
+            {noteMode ? (
+              // Note mode: the target text is selectable (not a button).
+              <div className="flex cursor-text flex-col gap-2 text-left select-text">{header}</div>
+            ) : (
+              <button
+                type="button"
+                disabled={onChange === undefined}
+                onClick={() => setActiveTarget(isActive ? null : target.id)}
+                aria-expanded={isActive}
+                className="flex flex-col gap-2 text-left disabled:cursor-default"
+              >
+                {header}
+              </button>
+            )}
             {isActive ? (
               <div className="flex flex-wrap gap-2">
                 {input.choices.map((choice) => {

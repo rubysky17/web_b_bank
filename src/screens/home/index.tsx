@@ -9,6 +9,7 @@ import {
   Flame,
   type LucideIcon,
   Play,
+  Settings,
   TrendingUp,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +24,7 @@ import { IconTile, type Tone, toneFor } from '@/components/app/icon-tile';
 import { ProgressRing } from '@/components/app/progress-ring';
 import { CenteredSpinner, EmptyView, ErrorView } from '@/components/app/states';
 import { Avatar, Page } from '@/components/layout/app-shell';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLoadMore } from '@/hooks/use-load-more';
@@ -104,12 +106,15 @@ export function HomeScreen() {
   );
 }
 
+/** Greeting; on phones the avatar and the gear open Settings (the sidebar does it from `md`). */
 function HomeHeader() {
   const { t } = useTranslation();
   const { data: me, isPending } = useMe();
   return (
     <div className="flex items-center gap-3">
-      <Avatar name={me?.fullName ?? ''} className="size-11" />
+      <Link to="/settings" aria-label={t('settings.title')} className="shrink-0 rounded-full">
+        <Avatar name={me?.fullName ?? ''} className="size-11" />
+      </Link>
       {isPending ? (
         <div className="flex flex-1 flex-col gap-1.5">
           <Skeleton className="h-4 w-40 rounded-full" />
@@ -123,6 +128,11 @@ function HomeHeader() {
           <p className="text-xs text-muted-foreground">{t('home.subtitle')}</p>
         </div>
       )}
+      <Button asChild variant="outline" size="icon" className="md:hidden">
+        <Link to="/settings" aria-label={t('settings.title')} title={t('settings.title')}>
+          <Settings className="size-5" />
+        </Link>
+      </Button>
     </div>
   );
 }

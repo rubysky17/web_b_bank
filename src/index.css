@@ -178,4 +178,12 @@
   [role='button']:not([aria-disabled='true']) {
     cursor: pointer;
   }
+
+  /* Vocabulary note mode (components/vocab): question text is for selecting. */
+  [data-note-mode] [data-vocab-block] {
+    cursor: text;
+  }
+  [data-note-mode] ::selection {
+    background-color: color-mix(in oklab, var(--primary) 30%, transparent);
+  }
 }

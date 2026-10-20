@@ -12,7 +12,8 @@
     "history": "History",
     "reports": "Reports",
     "settings": "Settings",
-    "bank": "Practice"
+    "bank": "Practice",
+    "vocab": "Vocabulary"
   },
   "auth": {
     "title": "Sign in",
@@ -274,7 +275,7 @@
     "reminder": "Study reminder",
     "reminderOn": "Every day at {{time}}",
     "reminderOff": "Off",
-    "sync": "Offline attempts",
+    "sync": "Offline sync",
     "pendingSync": "{{count}} attempt(s) waiting to sync",
     "allSynced": "Everything is synced",
     "lastSynced": "Last synced {{time}}",
@@ -293,7 +294,8 @@
     "help": "Help & feedback",
     "helpSubject": "Q Bank feedback",
     "privacy": "Privacy policy",
-    "reminderUnavailable": "Needs the latest app build"
+    "reminderUnavailable": "Needs the latest app build",
+    "vocabPending": "{{count}} vocabulary item(s) waiting to sync"
   },
   "errors": {
     "network": "No connection. Check your internet and try again.",
@@ -465,5 +467,54 @@
     "deleteConfirmTitle": "Delete your account?",
     "deleteConfirmMessage": "Everything will be deleted for good.",
     "notDeletable": "Author and admin accounts cannot be deleted from the app."
+  },
+  "vocab": {
+    "title": "Vocabulary",
+    "subtitle": "Words, phrases and sentences you noted while practising",
+    "count": "{{count}} item(s)",
+    "search": "Search words or meanings",
+    "filter": {
+      "all": "All",
+      "WORD": "Words",
+      "PHRASE": "Phrases",
+      "SENTENCE": "Sentences"
+    },
+    "kind": {
+      "WORD": "Word",
+      "PHRASE": "Phrase",
+      "SENTENCE": "Sentence"
+    },
+    "empty": "No words yet",
+    "emptyHint": "While taking a test, turn on the pencil and select words to save and translate them.",
+    "noMatch": "No matching words",
+    "noteMode": "Note vocabulary",
+    "noteModeOn": "Noting vocabulary",
+    "hintTap": "Tap a word to select it, then tap another to select the whole phrase. Long-press for the sentence.",
+    "hintSelect": "Highlight a word, phrase or sentence to save it and translate it into Vietnamese.",
+    "save": "Save",
+    "saved": "Saved",
+    "delete": "Delete",
+    "deleted": "Deleted “{{term}}”",
+    "undo": "Undo",
+    "translating": "Translating…",
+    "offline": "Will translate when online",
+    "waiting": "Not translated yet, will try again",
+    "failed": "Couldn't translate",
+    "addMeaning": "Add meaning",
+    "editMeaning": "Edit meaning",
+    "meaning": "Meaning",
+    "meaningPlaceholder": "Vietnamese meaning",
+    "meaningHint": "Leave empty to translate it again automatically",
+    "explanation": "Explanation",
+    "context": "Context",
+    "source": "Source",
+    "notedOn": "Noted on {{date}}",
+    "practiceSource": "Practice",
+    "tooLong": "Select at most 200 characters",
+    "storageFull": "Browser storage is full: new words may not be saved",
+    "synced": "Synced",
+    "pending": "{{count}} item(s) waiting to sync",
+    "syncing": "Syncing…",
+    "close": "Close"
   }
 }

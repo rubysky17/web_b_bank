@@ -22,6 +22,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
+import { NoteModeBanner, NoteToggle } from '@/components/vocab/note-toggle';
+import { VocabScope } from '@/components/vocab/vocab-scope';
+import { exitNoteMode, toggleNoteMode } from '@/components/vocab/vocab-ui-store';
 
 import { FlagButton, PrevButton, QuestionProgress, QuestionStrip, TimerBadge } from './parts';
 import { useCountdown } from './use-countdown';
@@ -86,6 +89,8 @@ export function LegacyAttemptScreen({ id }: { id: string }) {
       prev: () => setIndex((i) => Math.max(0, i - 1)),
       next: () => setIndex((i) => Math.min(questions.length - 1, i + 1)),
       flag: () => change({ flagged: !current?.flagged }),
+      note: toggleNoteMode,
+      escape: exitNoteMode,
     },
     current !== undefined,
   );
@@ -122,64 +127,75 @@ export function LegacyAttemptScreen({ id }: { id: string }) {
   const actionError = submitError ?? saveError;
 
   return (
-    <FocusPage>
-      <TopBar
-        title={attempt.examTitle}
-        fallback={`/exams/${attempt.examId}`}
-        accessory={secondsLeft === null ? null : <TimerBadge ms={secondsLeft * 1000} />}
-      />
-      <QuestionProgress
-        index={index}
-        count={questions.length}
-        answered={attempt.answeredCount}
-      />
-      <QuestionStrip
-        items={questions.map((question) => ({
-          id: question.id,
-          isAnswered: question.response != null,
-          isFlagged: question.flagged,
-        }))}
-        currentIndex={index}
-        onSelect={setIndex}
-      />
+    <VocabScope sourceTitle={attempt.examTitle}>
+      <FocusPage>
+        <TopBar
+          title={attempt.examTitle}
+          fallback={`/exams/${attempt.examId}`}
+          accessory={
+            <div className="flex items-center gap-2">
+              <NoteToggle />
+              {secondsLeft === null ? null : <TimerBadge ms={secondsLeft * 1000} />}
+            </div>
+          }
+        />
+        <NoteModeBanner />
+        <QuestionProgress
+          index={index}
+          count={questions.length}
+          answered={attempt.answeredCount}
+        />
+        <QuestionStrip
+          items={questions.map((question) => ({
+            id: question.id,
+            isAnswered: question.response != null,
+            isFlagged: question.flagged,
+          }))}
+          currentIndex={index}
+          onSelect={setIndex}
+        />
 
-      <QuestionBody
-        key={current.id}
-        question={current}
-        onAnswer={(answer) => change({ response: answer, timeSpentMs: takeDwell() })}
-      />
+        <QuestionBody
+          key={current.id}
+          question={current}
+          onAnswer={(answer) => change({ response: answer, timeSpentMs: takeDwell() })}
+        />
 
-      {actionError ? (
-        <p className="pb-2 text-sm text-destructive">{describeError(actionError, t)}</p>
-      ) : null}
-      <ActionBar>
-        <PrevButton disabled={index === 0} onClick={() => setIndex(index - 1)} />
-        <FlagButton flagged={current.flagged} onClick={() => change({ flagged: !current.flagged })} />
-        {isLast ? (
-          <Button
-            variant="brand"
-            size="lg"
-            className="flex-1"
-            disabled={isSubmitting}
-            onClick={() => void confirmSubmit()}
-          >
-            {isSubmitting ? <Spinner className="text-on-brand" /> : <Send />}
-            {t('attempt.submit')}
-          </Button>
-        ) : (
-          <Button
-            variant="brand"
-            size="lg"
-            className="flex-1"
-            onClick={() => setIndex(index + 1)}
-            title={`${t('attempt.next')} (→)`}
-          >
-            {t('attempt.next')}
-            <ArrowRight />
-          </Button>
-        )}
-      </ActionBar>
-    </FocusPage>
+        {actionError ? (
+          <p className="pb-2 text-sm text-destructive">{describeError(actionError, t)}</p>
+        ) : null}
+        <ActionBar>
+          <PrevButton disabled={index === 0} onClick={() => setIndex(index - 1)} />
+          <FlagButton
+            flagged={current.flagged}
+            onClick={() => change({ flagged: !current.flagged })}
+          />
+          {isLast ? (
+            <Button
+              variant="brand"
+              size="lg"
+              className="flex-1"
+              disabled={isSubmitting}
+              onClick={() => void confirmSubmit()}
+            >
+              {isSubmitting ? <Spinner className="text-on-brand" /> : <Send />}
+              {t('attempt.submit')}
+            </Button>
+          ) : (
+            <Button
+              variant="brand"
+              size="lg"
+              className="flex-1"
+              onClick={() => setIndex(index + 1)}
+              title={`${t('attempt.next')} (→)`}
+            >
+              {t('attempt.next')}
+              <ArrowRight />
+            </Button>
+          )}
+        </ActionBar>
+      </FocusPage>
+    </VocabScope>
   );
 }
 
@@ -195,7 +211,9 @@ function QuestionBody({
   const input = parseInput(question.type, question.data);
   const answer = parseAnswer(question.type, question.response);
 
-  useEffect(() => window.scrollTo({ top: 0 }), []);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, []);
 
   return (
     <div className="flex flex-col gap-3 pt-1 pb-4">

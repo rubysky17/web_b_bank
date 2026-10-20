@@ -1,4 +1,4 @@
-import { CloudOff, Inbox } from 'lucide-react';
+import { CloudOff, Inbox, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { describeError } from '@/api/errors';
@@ -8,12 +8,22 @@ import { Spinner } from '@/components/ui/spinner';
 
 import { FeatureIcon, IconTile } from './icon-tile';
 
-export function EmptyView({ message }: { message?: string }) {
+export function EmptyView({
+  message,
+  hint,
+  icon = Inbox,
+}: {
+  message?: string;
+  /** A second, smaller line: what to do to fill the list. */
+  hint?: string;
+  icon?: LucideIcon;
+}) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center gap-3 p-10 text-center">
-      <IconTile tone="blue" icon={Inbox} size="lg" />
+      <IconTile tone="blue" icon={icon} size="lg" />
       <p className="text-muted-foreground">{message ?? t('common.empty')}</p>
+      {hint ? <p className="max-w-sm text-sm text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

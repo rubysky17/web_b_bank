@@ -44,6 +44,7 @@ const router = createBrowserRouter([
         children: [
           { path: '/', lazy: screen(() => import('@/screens/home'), 'HomeScreen') },
           { path: '/bank', lazy: screen(() => import('@/screens/bank'), 'BankScreen') },
+          { path: '/vocab', lazy: screen(() => import('@/screens/vocab'), 'VocabScreen') },
           { path: '/history', lazy: screen(() => import('@/screens/history'), 'HistoryScreen') },
           { path: '/reports', lazy: screen(() => import('@/screens/reports'), 'ReportsScreen') },
           { path: '/settings', lazy: screen(() => import('@/screens/settings'), 'SettingsScreen') },

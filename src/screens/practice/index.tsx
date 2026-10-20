@@ -20,6 +20,9 @@ import {
 } from '@/components/question';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { NoteModeBanner, NoteToggle } from '@/components/vocab/note-toggle';
+import { VocabScope } from '@/components/vocab/vocab-scope';
+import { exitNoteMode, toggleNoteMode } from '@/components/vocab/vocab-ui-store';
 import { cn } from '@/lib/utils';
 import { PrevButton } from '@/screens/attempt/parts';
 import { useQuestionHotkeys } from '@/screens/attempt/use-hotkeys';
@@ -60,11 +63,15 @@ function PracticeScreen({ filters, start }: { filters: BankFilters; start: numbe
     }
   }, [index, loaded, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  useEffect(() => window.scrollTo({ top: 0 }), [index]);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [index]);
 
   useQuestionHotkeys({
     prev: () => setIndex((i) => Math.max(0, i - 1)),
     next: () => setIndex((i) => (i + 1 < loaded && i + 1 < total ? i + 1 : i)),
+    note: toggleNoteMode,
+    escape: exitNoteMode,
   });
 
   if (isPending) {
@@ -91,53 +98,60 @@ function PracticeScreen({ filters, start }: { filters: BankFilters; start: numbe
   const correctCount = results.filter(Boolean).length;
 
   return (
-    <FocusPage>
-      <TopBar
-        title={t('practice.progress', { current: index + 1, total: data.total })}
-        subtitle={t('practice.title')}
-        fallback="/bank"
-        accessory={
-          <span className="flex items-center gap-1 rounded-full bg-success-soft px-3 py-2 text-sm font-semibold text-success-soft-foreground">
-            <CircleCheck className="size-3.5" />
-            {t('practice.score', { correct: correctCount, answered: results.length })}
-          </span>
-        }
-      />
-      <GradientProgress
-        className="mt-3"
-        percent={Math.round(((index + 1) / Math.max(data.total, 1)) * 100)}
-      />
-      <div className="pt-3 pb-4">
-        <PracticeQuestion
-          key={question.id}
-          question={question}
-          answer={answers[question.id] ?? null}
-          isChecked={checked[question.id] === true}
-          onAnswer={(answer, checkNow) => {
-            setAnswers({ ...answers, [question.id]: answer });
-            if (checkNow) setChecked({ ...checked, [question.id]: true });
-          }}
-          onCheck={() => setChecked({ ...checked, [question.id]: true })}
+    // Notes are tagged with the exam the question comes from.
+    <VocabScope sourceTitle={question.examTitle || t('vocab.practiceSource')}>
+      <FocusPage>
+        <TopBar
+          title={t('practice.progress', { current: index + 1, total: data.total })}
+          subtitle={t('practice.title')}
+          fallback="/bank"
+          accessory={
+            <div className="flex items-center gap-2">
+              <NoteToggle />
+              <span className="flex items-center gap-1 rounded-full bg-success-soft px-3 py-2 text-sm font-semibold text-success-soft-foreground">
+                <CircleCheck className="size-3.5" />
+                {t('practice.score', { correct: correctCount, answered: results.length })}
+              </span>
+            </div>
+          }
         />
-      </div>
-      {isLast && checked[question.id] ? (
-        <p className="pb-2 text-center text-sm text-muted-foreground">{t('practice.finished')}</p>
-      ) : null}
-      <ActionBar>
-        <PrevButton disabled={index === 0} onClick={() => setIndex(index - 1)} />
-        <Button
-          variant="brand"
-          size="lg"
-          className="flex-1"
-          disabled={isLast || index + 1 >= loaded}
-          onClick={() => setIndex(index + 1)}
-          title={`${t('practice.next')} (→)`}
-        >
-          {t('practice.next')}
-          <ArrowRight />
-        </Button>
-      </ActionBar>
-    </FocusPage>
+        <NoteModeBanner />
+        <GradientProgress
+          className="mt-3"
+          percent={Math.round(((index + 1) / Math.max(data.total, 1)) * 100)}
+        />
+        <div className="pt-3 pb-4">
+          <PracticeQuestion
+            key={question.id}
+            question={question}
+            answer={answers[question.id] ?? null}
+            isChecked={checked[question.id] === true}
+            onAnswer={(answer, checkNow) => {
+              setAnswers({ ...answers, [question.id]: answer });
+              if (checkNow) setChecked({ ...checked, [question.id]: true });
+            }}
+            onCheck={() => setChecked({ ...checked, [question.id]: true })}
+          />
+        </div>
+        {isLast && checked[question.id] ? (
+          <p className="pb-2 text-center text-sm text-muted-foreground">{t('practice.finished')}</p>
+        ) : null}
+        <ActionBar>
+          <PrevButton disabled={index === 0} onClick={() => setIndex(index - 1)} />
+          <Button
+            variant="brand"
+            size="lg"
+            className="flex-1"
+            disabled={isLast || index + 1 >= loaded}
+            onClick={() => setIndex(index + 1)}
+            title={`${t('practice.next')} (→)`}
+          >
+            {t('practice.next')}
+            <ArrowRight />
+          </Button>
+        </ActionBar>
+      </FocusPage>
+    </VocabScope>
   );
 }
 

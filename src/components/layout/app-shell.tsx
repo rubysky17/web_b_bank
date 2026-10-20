@@ -1,4 +1,5 @@
 import {
+  BookA,
   ChartColumn,
   FileText,
   History,
@@ -14,19 +15,24 @@ import { useMe } from '@/api/auth';
 import { Wordmark } from '@/components/app/brand';
 import { cn } from '@/lib/utils';
 
-type Tab = { to: string; icon: LucideIcon; label: 'home' | 'bank' | 'history' | 'reports' | 'settings' };
+type Tab = {
+  to: string;
+  icon: LucideIcon;
+  label: 'home' | 'bank' | 'vocab' | 'history' | 'reports';
+};
 
+/** Five tabs at most, like the Android app. Settings opens from the user card / the home header. */
 const TABS: readonly Tab[] = [
   { to: '/', icon: FileText, label: 'home' },
   { to: '/bank', icon: ListChecks, label: 'bank' },
+  { to: '/vocab', icon: BookA, label: 'vocab' },
   { to: '/history', icon: History, label: 'history' },
   { to: '/reports', icon: ChartColumn, label: 'reports' },
-  { to: '/settings', icon: Settings, label: 'settings' },
 ];
 
 /**
  * Signed-in layout: a sidebar from `md` up; on phones a bottom tab bar, shown on the five tab
- * screens only (detail screens have their own bottom actions, like a native stack).
+ * screens only (detail screens, Settings included, have their own top bar, like a native stack).
  */
 export function AppShell() {
   const { pathname } = useLocation();
@@ -72,13 +78,20 @@ function Sidebar() {
       {me ? (
         <NavLink
           to="/settings"
-          className="mt-auto flex items-center gap-3 rounded-2xl p-2 hover:bg-accent"
+          title={t('settings.title')}
+          className={({ isActive }) =>
+            cn(
+              'mt-auto flex items-center gap-3 rounded-2xl p-2 transition',
+              isActive ? 'bg-primary-soft' : 'hover:bg-accent',
+            )
+          }
         >
           <Avatar name={me.fullName} />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{me.fullName}</p>
             <p className="truncate text-xs text-muted-foreground">{me.email}</p>
           </div>
+          <Settings className="size-[18px] shrink-0 text-muted-foreground" />
         </NavLink>
       ) : null}
     </aside>

@@ -31,6 +31,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { NoteModeBanner, NoteToggle } from '@/components/vocab/note-toggle';
+import { VocabScope } from '@/components/vocab/vocab-scope';
+import { exitNoteMode, toggleNoteMode } from '@/components/vocab/vocab-ui-store';
 import { cn } from '@/lib/utils';
 import { useQuestionHotkeys } from '@/screens/attempt/use-hotkeys';
 
@@ -71,24 +74,28 @@ function ReviewScreen({
   const { data: review, error, isPending, refetch } = useAttemptReview(id);
 
   return (
-    <FocusPage>
-      <TopBar
-        title={t('review.title')}
-        subtitle={review?.examTitle}
-        fallback={`/attempts/${id}/result`}
-      />
-      {isPending ? (
-        <LoadingView />
-      ) : !review ? (
-        <ErrorView error={error} onRetry={refetch} />
-      ) : (
-        <ReviewPager
-          questions={review.questions}
-          initialFilters={initialFilters}
-          initialQuestionId={initialQuestionId}
+    <VocabScope sourceTitle={review?.examTitle ?? null}>
+      <FocusPage>
+        <TopBar
+          title={t('review.title')}
+          subtitle={review?.examTitle}
+          fallback={`/attempts/${id}/result`}
+          accessory={review ? <NoteToggle /> : null}
         />
-      )}
-    </FocusPage>
+        <NoteModeBanner />
+        {isPending ? (
+          <LoadingView />
+        ) : !review ? (
+          <ErrorView error={error} onRetry={refetch} />
+        ) : (
+          <ReviewPager
+            questions={review.questions}
+            initialFilters={initialFilters}
+            initialQuestionId={initialQuestionId}
+          />
+        )}
+      </FocusPage>
+    </VocabScope>
   );
 }
 
@@ -127,7 +134,9 @@ function ReviewPager({
     setSearchParams(toReviewParams(filters, current?.question.id), { replace: true });
   }, [filters, current?.question.id, setSearchParams]);
 
-  useEffect(() => window.scrollTo({ top: 0 }), [current?.question.id]);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [current?.question.id]);
 
   const goTo = (questionId: string | undefined) => setCurrentId(questionId);
   const applyFilters = (next: ReviewFilters) => {
@@ -143,6 +152,8 @@ function ReviewPager({
   useQuestionHotkeys({
     prev: () => goTo(shown[index - 1]?.question.id ?? current?.question.id),
     next: () => goTo(shown[index + 1]?.question.id ?? current?.question.id),
+    note: toggleNoteMode,
+    escape: exitNoteMode,
   });
 
   const tally = { correct: 0, wrong: 0, notAnswered: 0 };

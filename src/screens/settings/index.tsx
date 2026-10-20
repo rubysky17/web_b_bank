@@ -1,4 +1,5 @@
 import {
+  BookA,
   ChevronRight,
   CloudCheck,
   CloudUpload,
@@ -22,10 +23,12 @@ import { useAttempts } from '@/api/attempts';
 import { useLogout, useLogoutAll, useMe } from '@/api/auth';
 import { describeError } from '@/api/errors';
 import { useReportExams } from '@/api/reports';
+import { syncVocab } from '@/api/vocab-sync';
 import { BrandCard } from '@/components/app/brand';
 import { confirm } from '@/components/app/confirm';
 import { IconTile, type Tone } from '@/components/app/icon-tile';
 import { SegmentedControl } from '@/components/app/segmented-control';
+import { TopBar } from '@/components/app/top-bar';
 import { Page, PageTitle } from '@/components/layout/app-shell';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,6 +43,7 @@ import {
   useSettingsStore,
 } from '@/stores/settings-store';
 import { useSyncStatusStore } from '@/stores/sync-status-store';
+import { usePendingVocabCount } from '@/stores/vocab-store';
 import { countByDay, currentStreak } from '@/utils/activity';
 
 const THEMES = ['system', 'light', 'dark'] as const satisfies readonly ThemePreference[];
@@ -72,8 +76,12 @@ export function SettingsScreen() {
   };
 
   return (
-    <Page className="gap-5 pb-10">
-      <PageTitle title={t('settings.title')} />
+    <Page className="gap-5 pt-0 pb-10 md:pt-8">
+      {/* Not a tab: phones get a back button instead of the tab bar; the sidebar stays from md. */}
+      <TopBar title={t('settings.title')} fallback="/" className="md:hidden" />
+      <div className="hidden md:block">
+        <PageTitle title={t('settings.title')} />
+      </div>
       <AccountCard />
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -262,7 +270,10 @@ function Stat({ value, label }: { value: string; label: string }) {
   );
 }
 
-/** Sectioned attempts kept in this browser: what still has to reach the server, and "sync now". */
+/**
+ * Sectioned attempts and vocabulary notes kept in this browser: what still has to reach the
+ * server, and "sync now".
+ */
 function SyncGroup() {
   const { t, i18n } = useTranslation();
   // Re-renders after each upload (the device index changes).
@@ -270,10 +281,11 @@ function SyncGroup() {
   const lastSyncedAt = useSyncStatusStore((s) => s.lastSyncedAt);
   const [state, setState] = useState<'idle' | 'running' | 'done' | 'offline'>('idle');
   const pending = pendingUploadCount();
+  const vocabPending = usePendingVocabCount();
 
   const syncNow = async () => {
     setState('running');
-    const outcomes = await syncAllAttemptsNow();
+    const [outcomes] = await Promise.all([syncAllAttemptsNow(), syncVocab()]);
     setState(outcomes.includes('OFFLINE') ? 'offline' : 'done');
   };
 
@@ -309,7 +321,16 @@ function SyncGroup() {
             </Button>
           )
         }
+        hasDivider={vocabPending > 0}
       />
+      {vocabPending > 0 ? (
+        <SettingsRow
+          icon={BookA}
+          tone="amber"
+          title={t('settings.vocabPending', { count: vocabPending })}
+          to="/vocab"
+        />
+      ) : null}
     </SettingsGroup>
   );
 }

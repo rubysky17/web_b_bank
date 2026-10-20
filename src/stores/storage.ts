@@ -2,7 +2,8 @@ import type { StateStorage } from 'zustand/middleware';
 
 type KeyValueStorage = {
   getString: (key: string) => string | undefined;
-  set: (key: string, value: string) => void;
+  /** False when the browser refused the write (quota exceeded). */
+  set: (key: string, value: string) => boolean;
   remove: (key: string) => void;
 };
 
@@ -25,9 +26,11 @@ function createStorage(): KeyValueStorage {
     set: (key, value) => {
       try {
         window.localStorage.setItem(PREFIX + key, value);
+        return true;
       } catch (error) {
         // Quota exceeded: keep going, the server copy is the fallback.
         console.warn('[storage] write failed', key, error);
+        return false;
       }
     },
     remove: (key) => window.localStorage.removeItem(PREFIX + key),
@@ -40,6 +43,7 @@ function createMemoryStorage(): KeyValueStorage {
     getString: (key) => values.get(key),
     set: (key, value) => {
       values.set(key, value);
+      return true;
     },
     remove: (key) => {
       values.delete(key);
@@ -52,6 +56,8 @@ export const storage: KeyValueStorage = createStorage();
 /** Adapter so zustand `persist` reads/writes synchronously (no hydration flash). */
 export const zustandStorage: StateStorage = {
   getItem: (name) => storage.getString(name) ?? null,
-  setItem: (name, value) => storage.set(name, value),
+  setItem: (name, value) => {
+    storage.set(name, value);
+  },
   removeItem: (name) => storage.remove(name),
 };

@@ -17,6 +17,7 @@ import {
 } from '@/components/question';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { exitNoteMode, toggleNoteMode } from '@/components/vocab/vocab-ui-store';
 import { cn } from '@/lib/utils';
 import { type AttemptSnapshot, dispatchAttempt, getSession } from '@/stores/attempt-sessions';
 
@@ -66,7 +67,13 @@ export function QuestionScreen({
 
   // Not while paused: the overlay hides the question so a pause can't be used to read ahead.
   useQuestionHotkeys(
-    { prev: () => go(index - 1), next: () => go(index + 1), flag: toggleFlag },
+    {
+      prev: () => go(index - 1),
+      next: () => go(index + 1),
+      flag: toggleFlag,
+      note: toggleNoteMode,
+      escape: exitNoteMode,
+    },
     getSession(attemptId)?.isRunning ?? false,
   );
 
@@ -150,7 +157,9 @@ function QuestionBody({
       payload: payload as Record<string, unknown> | undefined,
     });
 
-  useEffect(() => window.scrollTo({ top: 0 }), []);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, []);
 
   const picked = (a: Answer | null) =>
     a === null ? [] : 'optionId' in a ? [a.optionId] : 'optionIds' in a ? a.optionIds : [];
