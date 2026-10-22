@@ -259,6 +259,18 @@ export function useAttempts() {
   });
 }
 
+/** Attempts in progress on any device (the "continue" cards add those this device doesn't keep). */
+export function useAttemptsInProgress() {
+  return useQuery({
+    queryKey: queryKeys.attempts.inProgress(),
+    queryFn: ({ signal }) =>
+      api
+        .get('attempts', { searchParams: { status: 'IN_PROGRESS', limit: PAGE_SIZE }, signal })
+        .json(AttemptsPageSchema),
+    select: (page) => page.items,
+  });
+}
+
 export const attemptQueryOptions = (attemptId: string) =>
   queryOptions({
     queryKey: queryKeys.attempts.detail(attemptId),

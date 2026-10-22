@@ -15,7 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
-import { useAttempts } from '@/api/attempts';
+import { useAttempts, useAttemptsInProgress } from '@/api/attempts';
 import { useMe } from '@/api/auth';
 import { useCatalog } from '@/api/catalog';
 import { useReportExams } from '@/api/reports';
@@ -32,6 +32,8 @@ import { cn } from '@/lib/utils';
 import { useLocalAttempts } from '@/stores/attempt-sessions';
 import { useSettingsStore } from '@/stores/settings-store';
 import { answeredToday, countByDay, currentStreak } from '@/utils/activity';
+
+import { continueItems } from './rows';
 
 export function HomeScreen() {
   const { t } = useTranslation();
@@ -138,12 +140,13 @@ function HomeHeader() {
 }
 
 /**
- * Unfinished attempts kept in this browser (shown offline too): the latest as a gradient card, the
- * others as compact rows.
+ * Unfinished attempts, kept in this browser (shown offline too) or in progress on another device:
+ * the latest as a gradient card, the others as compact rows.
  */
 export function ContinueCards() {
   const { t } = useTranslation();
-  const unfinished = useLocalAttempts().filter((a) => a.closing === null);
+  const { data: inProgress } = useAttemptsInProgress();
+  const unfinished = continueItems(useLocalAttempts(), inProgress);
   const [latest, ...others] = unfinished;
   if (!latest) return null;
   const progress = latest.totalQuestions > 0 ? latest.answeredCount / latest.totalQuestions : 0;

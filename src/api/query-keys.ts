@@ -19,6 +19,7 @@ export const queryKeys = {
   attempts: {
     all: ['attempts'] as const,
     list: () => [...queryKeys.attempts.all, 'list'] as const,
+    inProgress: () => [...queryKeys.attempts.all, 'in-progress'] as const,
     detail: (attemptId: string) => [...queryKeys.attempts.all, 'detail', attemptId] as const,
     result: (attemptId: string) => [...queryKeys.attempts.all, 'result', attemptId] as const,
     review: (attemptId: string) => [...queryKeys.attempts.all, 'review', attemptId] as const,

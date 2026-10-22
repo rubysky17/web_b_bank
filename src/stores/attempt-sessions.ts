@@ -121,6 +121,18 @@ export function sessionFromView(view: AttemptView): AttemptSession {
   return session;
 }
 
+/**
+ * Another device went on with the attempt: drop the copy kept here (what it recorded since can no
+ * longer be uploaded) and start over from the server's, so the open screen shows where it is now.
+ */
+export function replaceSession(view: AttemptView): AttemptSession {
+  sessions.delete(view.id);
+  localAttempts.remove(view.id);
+  const session = sessionFromView(view);
+  publish(session, view.id);
+  return session;
+}
+
 export const loadSnapshot = (attemptId: string) =>
   localAttempts.loadSnapshot<AttemptSnapshot>(attemptId);
 

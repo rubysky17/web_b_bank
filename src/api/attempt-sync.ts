@@ -7,11 +7,12 @@ import {
   forgetSession,
   getSession,
   localAttempts,
+  replaceSession,
   useAttemptSessionsStore,
 } from '@/stores/attempt-sessions';
 import { useSyncStatusStore } from '@/stores/sync-status-store';
 
-import { AttemptResultSchema } from './attempts';
+import { AttemptResultSchema, AttemptViewSchema } from './attempts';
 import { api } from './client';
 import { toApiError } from './errors';
 import { queryKeys } from './query-keys';
@@ -23,6 +24,8 @@ const MAX_EVENTS = 500;
 const MAX_QUESTIONS = 500;
 /** While an attempt has something to upload, try again this often. */
 const RETRY_EVERY_MS = 30_000;
+/** After the user acts, upload this soon, so another device can go on from there. */
+const UPLOAD_AFTER_MS = 2_000;
 
 const SyncResultSchema = z.object({
   attemptId: z.string(),
@@ -34,9 +37,10 @@ const SyncResultSchema = z.object({
  * - SYNCED: the server has everything; the attempt is still open.
  * - DONE: submitted or abandoned on the server; the device forgot it (the result can be read).
  * - CLOSED: the server had already closed it (e.g. started over on another device).
+ * - MOVED: another device went on with it; the device copy now is the server's (still open).
  * - OFFLINE: nothing could be sent; the data stays on the device and is retried later.
  */
-export type SyncOutcome = 'SYNCED' | 'DONE' | 'CLOSED' | 'OFFLINE';
+export type SyncOutcome = 'SYNCED' | 'DONE' | 'CLOSED' | 'MOVED' | 'OFFLINE';
 
 const running = new Map<string, Promise<SyncOutcome>>();
 
@@ -117,7 +121,8 @@ async function run(attemptId: string): Promise<SyncOutcome> {
       if (result.ackedSeq < session.state.lastSeq) {
         // More events than one request takes, or new ones recorded meanwhile: keep going, unless
         // the server took nothing (a gap it cannot fill): the next scheduled sync tries again.
-        if (result.ackedSeq <= ackedBefore) return 'SYNCED';
+        const recordedMeanwhile = session.state.lastSeq > state.lastSeq;
+        if (result.ackedSeq <= ackedBefore && !recordedMeanwhile) return 'SYNCED';
         continue;
       }
       if (session.state.closing === 'SUBMIT') return await submit(attemptId);
@@ -132,10 +137,30 @@ async function run(attemptId: string): Promise<SyncOutcome> {
       void queryClient.invalidateQueries({ queryKey: queryKeys.attempts.all });
       return 'CLOSED';
     }
+    if (apiError.serverCode === 'ATTEMPT_CONTINUED_ELSEWHERE') {
+      return await reload(attemptId).catch((): SyncOutcome => 'OFFLINE');
+    }
     if (apiError.code === 'network' || apiError.code === 'timeout') return 'OFFLINE';
     log.warn('sync failed', attemptId, error);
     return 'OFFLINE';
   }
+}
+
+/**
+ * Another device went on with the attempt (started on the computer, continued on the phone): the
+ * server has the newer copy. It replaces the one kept here, or the attempt is forgotten if it was
+ * closed meanwhile. Failing to read it (offline) keeps the device copy until the next sync.
+ */
+async function reload(attemptId: string): Promise<SyncOutcome> {
+  log.warn('attempt continued on another device; reloading it from the server', attemptId);
+  const view = await api.get(`attempts/${attemptId}`).json(AttemptViewSchema);
+  void queryClient.invalidateQueries({ queryKey: queryKeys.attempts.all });
+  if (view.mode === 'SECTIONED' && view.status === 'IN_PROGRESS') {
+    replaceSession(view);
+    return 'MOVED';
+  }
+  forgetSession(attemptId);
+  return 'CLOSED';
 }
 
 async function submit(attemptId: string): Promise<SyncOutcome> {
@@ -182,23 +207,47 @@ export function syncAllAttempts() {
   for (const { attemptId } of localAttempts.listAttempts()) void syncAttempt(attemptId);
 }
 
+const uploadTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Uploads an attempt the user just acted on: at once when leaving the app, else a bit later. */
+function uploadSoon(attemptId: string, now: boolean) {
+  clearTimeout(uploadTimers.get(attemptId));
+  const upload = () => {
+    uploadTimers.delete(attemptId);
+    if (onlineManager.isOnline()) void syncAttempt(attemptId);
+  };
+  if (now) upload();
+  else uploadTimers.set(attemptId, setTimeout(upload, UPLOAD_AFTER_MS));
+}
+
+/** Calls `onRecorded` with every attempt that got new events (the store republishes after each). */
+function onEventsRecorded(onRecorded: (attemptId: string) => void) {
+  return useAttemptSessionsStore.subscribe((next, previous) => {
+    for (const [attemptId, state] of Object.entries(next.states)) {
+      if (state.lastSeq > (previous.states[attemptId]?.lastSeq ?? 0)) onRecorded(attemptId);
+    }
+  });
+}
+
 /**
- * Background upload: when the connection comes back, when the tab becomes visible again, and
- * every 30 s while something is waiting. Started once by the app providers.
+ * Background upload: shortly after every action (at once while the tab is hidden), when the tab is
+ * hidden or shown again (another device may have gone on meanwhile), when the connection comes
+ * back, and every 30 s while something is waiting. Started once by the app providers.
  */
 export function startAttemptSync() {
   syncAllAttempts();
   const unsubscribeOnline = onlineManager.subscribe((isOnline) => {
     if (isOnline) syncAllAttempts();
   });
-  const onVisible = () => {
-    if (document.visibilityState === 'visible') syncAllAttempts();
-  };
-  document.addEventListener('visibilitychange', onVisible);
+  const unsubscribeEvents = onEventsRecorded((attemptId) => {
+    uploadSoon(attemptId, document.visibilityState === 'hidden');
+  });
+  document.addEventListener('visibilitychange', syncAllAttempts);
   const timer = setInterval(syncAllAttempts, RETRY_EVERY_MS);
   return () => {
     unsubscribeOnline();
-    document.removeEventListener('visibilitychange', onVisible);
+    unsubscribeEvents();
+    document.removeEventListener('visibilitychange', syncAllAttempts);
     clearInterval(timer);
   };
 }
