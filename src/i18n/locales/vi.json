@@ -295,7 +295,9 @@
     "helpSubject": "Góp ý Q Bank",
     "privacy": "Chính sách bảo mật",
     "reminderUnavailable": "Cần cài bản app mới nhất",
-    "vocabPending": "{{count}} từ vựng chờ đồng bộ"
+    "vocabPending": "{{count}} từ vựng chờ đồng bộ",
+    "practiceSync": "Luyện tập & cài đặt",
+    "practicePending": "{{count}} thay đổi luyện tập/cài đặt chờ đồng bộ"
   },
   "errors": {
     "network": "Không có kết nối mạng. Kiểm tra Internet rồi thử lại.",
@@ -352,7 +354,10 @@
     "next": "Câu sau",
     "finished": "Bạn đã đến câu cuối cùng",
     "check": "Kiểm tra",
-    "wrongMatch": "Chưa đúng — đáp án đúng hiển thị ở trên"
+    "wrongMatch": "Chưa đúng — đáp án đúng hiển thị ở trên",
+    "reset": "Làm lại",
+    "resetTitle": "Làm lại các câu đã trả lời?",
+    "resetMessage": "Đáp án đã chọn ở {{count}} câu sẽ bị xoá trên mọi thiết bị của bạn."
   },
   "confidence": {
     "LOW": "Chưa chắc",

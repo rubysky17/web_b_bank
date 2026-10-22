@@ -34,7 +34,7 @@ import { useQuestionHotkeys } from './use-hotkeys';
 /** Server codes meaning the attempt can no longer take answers: show the result instead. */
 const CLOSED_CODES = new Set(['ATTEMPT_EXPIRED', 'ATTEMPT_CLOSED']);
 
-/** One server deadline for the whole attempt; every answer is saved online right away. */
+/** One server deadline for the whole attempt; every answer is kept on the device and sent at once. */
 export function LegacyAttemptScreen({ id }: { id: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();

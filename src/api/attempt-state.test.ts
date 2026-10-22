@@ -1,4 +1,4 @@
-import { applyAnswerChange, clockOffsetMs, secondsLeft } from './attempt-state';
+import { applyAnswerChange, clockOffsetMs, queueChange, secondsLeft } from './attempt-state';
 
 const view = {
   answeredCount: 1,
@@ -48,5 +48,35 @@ describe('countdown helpers', () => {
     expect(secondsLeft('2026-10-17T10:00:00.000Z', 0, Date.parse('2026-10-17T11:00:00.000Z'))).toBe(
       0,
     );
+  });
+});
+
+describe('queueChange', () => {
+  it('keeps the newest answer and flag and adds up the time', () => {
+    const first = queueChange(
+      undefined,
+      { attemptQuestionId: 'q1', response: { optionId: 'a' }, timeSpentMs: 500 },
+      10,
+    );
+    const second = queueChange(
+      first,
+      { attemptQuestionId: 'q1', flagged: true, timeSpentMs: 200 },
+      20,
+    );
+    const third = queueChange(second, { attemptQuestionId: 'q1', response: null }, 30);
+    expect(third).toEqual({
+      attemptQuestionId: 'q1',
+      response: null,
+      flagged: true,
+      timeSpentMs: 700,
+      clientUpdatedAt: 30,
+    });
+  });
+
+  it('always moves the version forward, even with a clock set back', () => {
+    const first = queueChange(undefined, { attemptQuestionId: 'q1', flagged: true }, 100);
+    expect(
+      queueChange(first, { attemptQuestionId: 'q1', flagged: false }, 50).clientUpdatedAt,
+    ).toBe(101);
   });
 });

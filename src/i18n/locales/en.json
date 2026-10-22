@@ -295,7 +295,9 @@
     "helpSubject": "Q Bank feedback",
     "privacy": "Privacy policy",
     "reminderUnavailable": "Needs the latest app build",
-    "vocabPending": "{{count}} vocabulary item(s) waiting to sync"
+    "vocabPending": "{{count}} vocabulary item(s) waiting to sync",
+    "practiceSync": "Practice & settings",
+    "practicePending": "{{count}} practice/settings change(s) waiting to sync"
   },
   "errors": {
     "network": "No connection. Check your internet and try again.",
@@ -352,7 +354,10 @@
     "next": "Next",
     "finished": "You reached the last question",
     "check": "Check answer",
-    "wrongMatch": "Not quite — the correct answers are shown above"
+    "wrongMatch": "Not quite — the correct answers are shown above",
+    "reset": "Practice again",
+    "resetTitle": "Practice these questions again?",
+    "resetMessage": "The answers picked on {{count}} question(s) will be cleared on all your devices."
   },
   "confidence": {
     "LOW": "Not sure",

@@ -10,6 +10,13 @@ import { z } from 'zod';
 
 import { type AnswerChange, applyAnswerChange } from './attempt-state';
 import { api } from './client';
+import { ApiError } from './errors';
+import {
+  enqueueAnswer,
+  flushLegacyAttempt,
+  pendingAnswers,
+  withPendingAnswers,
+} from './legacy-outbox';
 import { nextPage, PAGE_SIZE, pageSchema } from './pagination';
 import { queryKeys } from './query-keys';
 
@@ -156,14 +163,6 @@ export const SingleChoiceDataSchema = z.object({
 export const SingleChoiceResponseSchema = z.object({ optionId: z.string() });
 export const SingleChoiceAnswerKeySchema = z.object({ correctOptionId: z.string() });
 
-const SaveAnswersResultSchema = z.object({
-  attemptId: z.string(),
-  saved: z.number(),
-  answeredCount: z.number(),
-  flaggedCount: z.number(),
-  serverTime: z.string(),
-});
-
 const TallySchema = z.object({
   total: z.number(),
   answered: z.number(),
@@ -274,7 +273,13 @@ export function useAttemptsInProgress() {
 export const attemptQueryOptions = (attemptId: string) =>
   queryOptions({
     queryKey: queryKeys.attempts.detail(attemptId),
-    queryFn: ({ signal }) => api.get(`attempts/${attemptId}`, { signal }).json(AttemptViewSchema),
+    queryFn: async ({ signal }) => {
+      const view = await api.get(`attempts/${attemptId}`, { signal }).json(AttemptViewSchema);
+      // LEGACY answers picked offline are not on the server yet: show them anyway.
+      return view.mode === 'LEGACY' && view.status === 'IN_PROGRESS'
+        ? withPendingAnswers(attemptId, view)
+        : view;
+    },
     // The countdown needs a fresh `serverTime` every time the screen opens.
     staleTime: 0,
   });
@@ -284,8 +289,9 @@ export function useAttempt(attemptId: string) {
 }
 
 /**
- * Saves one answer or flag. The cache is updated immediately (the UI never waits for the network)
- * and rolled back if the server refuses the change.
+ * Saves one answer or flag (LEGACY). It is kept on the device first and sent right away, or when
+ * the connection comes back (`legacy-outbox.ts`). The cache is updated immediately (the UI never
+ * waits for the network) and rolled back only if the server refuses the change.
  */
 export function useSaveAnswer(attemptId: string) {
   const queryClient = useQueryClient();
@@ -293,10 +299,10 @@ export function useSaveAnswer(attemptId: string) {
 
   return useMutation({
     mutationKey: ['attempts', 'answer', attemptId],
-    mutationFn: (change: AnswerChange) =>
-      api
-        .patch(`attempts/${attemptId}/answers`, { json: { answers: [change] } })
-        .json(SaveAnswersResultSchema),
+    mutationFn: async (change: AnswerChange) => {
+      enqueueAnswer(attemptId, change);
+      return flushLegacyAttempt(attemptId);
+    },
     onMutate: async (change) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<AttemptView>(queryKey);
@@ -315,7 +321,12 @@ export function useSubmitAttempt(attemptId: string) {
 
   return useMutation({
     mutationKey: ['attempts', 'submit', attemptId],
-    mutationFn: () => api.post(`attempts/${attemptId}/submit`).json(AttemptResultSchema),
+    mutationFn: async () => {
+      // Every answer must be on the server before grading.
+      await flushLegacyAttempt(attemptId).catch(() => undefined);
+      if (pendingAnswers(attemptId).length > 0) throw new ApiError('network');
+      return api.post(`attempts/${attemptId}/submit`).json(AttemptResultSchema);
+    },
     onSuccess: (result) => {
       queryClient.setQueryData(queryKeys.attempts.result(attemptId), result);
       void queryClient.invalidateQueries({ queryKey: queryKeys.attempts.all });

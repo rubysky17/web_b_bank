@@ -17,7 +17,9 @@ npx shadcn@latest add <component>   # adds to src/components/ui (components.json
 
 These are copies of `../client_q_bank/src`; change both sides together:
 `api/*` (except `client.ts` env name and the foreground listeners of `attempt-sync.ts` and
-`vocab-sync.ts`), `attempt-engine/*`, `vocab/*`, `stores/vocab-store.ts`,
+`vocab-sync.ts`), `attempt-engine/*`, `vocab/*`, `user-state/*`, `stores/vocab-store.ts`,
+`stores/user-state-store.ts`, `stores/attempt-sessions.ts`, `stores/sync-status-store.ts`,
+`sync/*` (except the tab/visibility listeners of `coordinator.ts` and the reminder in `account-settings.ts`),
 `utils/*`, `components/question/answer-model.ts`, `screens/*/{rows,filters,review-filters,insights,schema}.ts`,
 `components/charts/geometry.ts`, `i18n/locales/*.json` (merge keys, never copy the files over: the web
 has a few of its own). Tests travel with them. `vocab/term.ts` is also the server's
@@ -35,6 +37,17 @@ has a few of its own). Tests travel with them. `vocab/term.ts` is also the serve
   (`POST /vocab/sync`). Change notes only through the store's functions (`noteTerm`,
   `deleteVocabNote`, …); never put them in TanStack Query. Pure rules (keys, matching, merge) are in
   `vocab/`.
+- Accounts never share data in a browser: everything kept for a user is under their own keys
+  (`u:<userId>:attempt:*`, `u:<userId>:legacy-outbox`, `u:<userId>:sync-status`,
+  `user-state:<userId>:*`, `vocab:<userId>:*`). `sync/coordinator.ts` is the only place that follows
+  the signed-in user (`activate*User`), syncs everything on sign-in / tab shown / connection back,
+  and polls `GET /me/sync-status` every 20 s to sync what another device changed. Logout first calls
+  `flushBeforeSignOut()`; what could not be sent waits for the user to sign in again.
+- Practice answers and account settings (language, daily goal) are `PRACTICE` / `SETTING` items of
+  `stores/user-state-store.ts`, synced with `POST /me/sync` (`api/user-state-sync.ts`). Change them
+  only through the store's functions (`savePracticeAnswer`, the settings setters…).
+- LEGACY answers go through `api/legacy-outbox.ts` (kept in the browser, sent at once, again when
+  the connection returns), never straight to `PATCH /answers`.
 - Question text on vocabulary screens goes through `<VocabText>` inside a `data-vocab-block`
   element, and the screen wraps it in `<VocabScope sourceTitle>` (`components/vocab/`: one popover
   and one capture-phase click handler per screen, so nothing interactive is nested in option

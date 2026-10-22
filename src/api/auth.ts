@@ -2,10 +2,15 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { z } from 'zod';
 
 import { getDeviceInfo } from '@/lib/device';
+import { clearAttemptUser } from '@/stores/attempt-sessions';
 import { useAuthStore } from '@/stores/auth-store';
-import { clearVocabUser, useVocabStore } from '@/stores/vocab-store';
+import { clearUserStateUser } from '@/stores/user-state-store';
+import { clearVocabUser } from '@/stores/vocab-store';
+import { flushBeforeSignOut } from '@/sync/coordinator';
+import { userIdFromToken } from '@/utils/jwt';
 
 import { api, endSession } from './client';
+import { clearLegacyOutboxUser } from './legacy-outbox';
 import { queryKeys } from './query-keys';
 import { AuthResponseSchema, UserSchema } from './session';
 
@@ -61,6 +66,8 @@ export function useLogout() {
   return useMutation({
     mutationKey: ['auth', 'logout'],
     mutationFn: async () => {
+      // Upload what the device still holds; the rest waits for the user under their own keys.
+      await flushBeforeSignOut();
       // Best effort: end the server session too, but never keep the user signed in on failure.
       await api.post('auth/logout').catch(() => undefined);
       await endSession();
@@ -107,6 +114,7 @@ export function useLogoutAll() {
   return useMutation({
     mutationKey: ['auth', 'logout-all'],
     mutationFn: async () => {
+      await flushBeforeSignOut();
       await api.post('auth/logout-all');
       await endSession();
     },
@@ -120,8 +128,14 @@ export function useDeleteAccount() {
     mutationFn: async (password: string) => {
       const { reauthToken } = await reauth(password);
       await api.delete('auth/me', { json: { reauthToken } });
-      const userId = useVocabStore.getState().userId;
-      if (userId) clearVocabUser(userId);
+      // Nothing of the account is left on the device.
+      const userId = userIdFromToken(useAuthStore.getState().accessToken);
+      if (userId) {
+        clearVocabUser(userId);
+        clearUserStateUser(userId);
+        clearAttemptUser(userId);
+        clearLegacyOutboxUser(userId);
+      }
       await endSession();
     },
   });

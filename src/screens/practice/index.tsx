@@ -1,10 +1,11 @@
-import { ArrowRight, CheckCheck, CircleCheck, CircleX } from 'lucide-react';
+import { ArrowRight, CheckCheck, CircleCheck, CircleX, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 
 import { type BankFilters, type BankQuestion, useBankQuestions } from '@/api/question-bank';
 import { GradientProgress } from '@/components/app/brand';
+import { confirm } from '@/components/app/confirm';
 import { ErrorView, LoadingView } from '@/components/app/states';
 import { ActionBar, TopBar } from '@/components/app/top-bar';
 import { FocusPage } from '@/components/layout/app-shell';
@@ -27,6 +28,13 @@ import { cn } from '@/lib/utils';
 import { PrevButton } from '@/screens/attempt/parts';
 import { useQuestionHotkeys } from '@/screens/attempt/use-hotkeys';
 import { fromParams } from '@/screens/bank/filters';
+import {
+  checkPracticeAnswer,
+  resetPractice,
+  savePracticeAnswer,
+  useUserStateStore,
+} from '@/stores/user-state-store';
+import { practiceOf } from '@/user-state/practice';
 import { optionLetter } from '@/utils/format-duration';
 
 /** Load the next page this many questions before the end of what is loaded. */
@@ -42,16 +50,15 @@ export function PracticeRoute() {
 }
 
 /**
- * Self-study over the question bank: answer, check right away, read the explanation. Nothing is
- * sent to the server; answers live only while the page is open.
+ * Self-study over the question bank: answer, check right away, read the explanation. Answers are
+ * kept in the browser and synced to the user's other devices (`stores/user-state-store.ts`).
  */
 function PracticeScreen({ filters, start }: { filters: BankFilters; start: number }) {
   const { t } = useTranslation();
   const { data, error, isPending, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useBankQuestions(filters);
   const [index, setIndex] = useState(start);
-  const [answers, setAnswers] = useState<Record<string, Answer | null>>({});
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const items = useUserStateStore((s) => s.items);
   const loaded = data?.items.length ?? 0;
   const total = data?.total ?? 0;
   const isLast = index >= total - 1;
@@ -90,12 +97,27 @@ function PracticeScreen({ filters, start }: { filters: BankFilters; start: numbe
     );
   }
 
-  const results = data.items.flatMap((q) => {
-    if (!checked[q.id]) return [];
+  const practiced = data.items.flatMap((q) => {
+    const done = practiceOf<Answer>(items, q.id);
+    return done ? [{ question: q, ...done }] : [];
+  });
+  const results = practiced.flatMap(({ question: q, response, checked }) => {
+    if (!checked) return [];
     const model = fromDefinition(q.type, q.definition);
-    return model ? [isAnswerCorrect(model.key, answers[q.id] ?? null)] : [];
+    return model ? [isAnswerCorrect(model.key, response)] : [];
   });
   const correctCount = results.filter(Boolean).length;
+  const current = practiceOf<Answer>(items, question.id);
+
+  const confirmReset = async () => {
+    const ok = await confirm({
+      title: t('practice.resetTitle'),
+      message: t('practice.resetMessage', { count: practiced.length }),
+      confirmLabel: t('practice.reset'),
+      destructive: true,
+    });
+    if (ok) resetPractice(practiced.map(({ question: q }) => q.id));
+  };
 
   return (
     // Notes are tagged with the exam the question comes from.
@@ -107,6 +129,17 @@ function PracticeScreen({ filters, start }: { filters: BankFilters; start: numbe
           fallback="/bank"
           accessory={
             <div className="flex items-center gap-2">
+              {practiced.length > 0 ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => void confirmReset()}
+                  aria-label={t('practice.reset')}
+                  title={t('practice.reset')}
+                >
+                  <RotateCcw />
+                </Button>
+              ) : null}
               <NoteToggle />
               <span className="flex items-center gap-1 rounded-full bg-success-soft px-3 py-2 text-sm font-semibold text-success-soft-foreground">
                 <CircleCheck className="size-3.5" />
@@ -124,16 +157,13 @@ function PracticeScreen({ filters, start }: { filters: BankFilters; start: numbe
           <PracticeQuestion
             key={question.id}
             question={question}
-            answer={answers[question.id] ?? null}
-            isChecked={checked[question.id] === true}
-            onAnswer={(answer, checkNow) => {
-              setAnswers({ ...answers, [question.id]: answer });
-              if (checkNow) setChecked({ ...checked, [question.id]: true });
-            }}
-            onCheck={() => setChecked({ ...checked, [question.id]: true })}
+            answer={current?.response ?? null}
+            isChecked={current?.checked === true}
+            onAnswer={(answer, checkNow) => savePracticeAnswer(question.id, answer, checkNow)}
+            onCheck={() => checkPracticeAnswer(question.id)}
           />
         </div>
-        {isLast && checked[question.id] ? (
+        {isLast && current?.checked ? (
           <p className="pb-2 text-center text-sm text-muted-foreground">{t('practice.finished')}</p>
         ) : null}
         <ActionBar>

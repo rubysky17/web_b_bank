@@ -1,7 +1,13 @@
 import { create } from 'zustand';
 
 import type { AttemptQuestion, AttemptView } from '@/api/attempts';
-import { createLocalStore, type LocalAttemptSummary } from '@/attempt-engine/local-store';
+import {
+  adoptUnownedAttempts,
+  attemptPrefix,
+  createLocalStore,
+  type LocalAttemptSummary,
+  type LocalStore,
+} from '@/attempt-engine/local-store';
 import { sessionFromServer } from '@/attempt-engine/reducer';
 import { AttemptSession, type SessionDeps } from '@/attempt-engine/session';
 import type { EventInput, SessionState } from '@/attempt-engine/types';
@@ -12,17 +18,29 @@ import { storage } from './storage';
 /**
  * Sectioned attempts kept on the device (they work offline; `src/api/attempt-sync.ts` uploads them).
  * The sessions live here; the zustand store only republishes their state so screens re-render.
- * Not `persist`ed: each session writes its own small MMKV keys (see `local-store.ts`).
+ * Not `persist`ed: each session writes its own small MMKV keys (see `local-store.ts`), under the
+ * signed-in user's prefix, so another account on the device never sees them.
  */
-export const localAttempts = createLocalStore(storage);
+let owner: string | null = null;
+/** Nothing is kept while signed out: this store reads and writes keys no user owns. */
+let store: LocalStore = createLocalStore(storage, 'signed-out:');
 
-const deps: SessionDeps = {
-  store: localAttempts,
+/** The signed-in user's attempts on the device. Capture it before awaiting: the user can change. */
+export const localAttempts = () => store;
+/** Whose attempts are loaded (null: signed out). */
+export const attemptsOwner = () => owner;
+
+/** Set once the attempts saved before keys were per user have been given to a user. */
+const ADOPTED_KEY = 'attempt:adopted';
+
+const depsOf = (local: LocalStore): SessionDeps => ({
+  store: local,
   // Monotonic: the device clock can be changed by the user, this cannot.
   monoNow: () => performance.now(),
   wallNow: () => Date.now(),
   newId: () => uuidv7(),
-};
+});
+let deps = depsOf(store);
 
 /** What the test screen needs to show questions offline: kept with the session. */
 export type AttemptSnapshot = {
@@ -37,7 +55,7 @@ type AttemptSessionsStore = {
 
 export const useAttemptSessionsStore = create<AttemptSessionsStore>(() => ({
   states: {},
-  index: localAttempts.listAttempts(),
+  index: [],
 }));
 
 const sessions = new Map<string, AttemptSession>();
@@ -47,8 +65,35 @@ function publish(session: AttemptSession | null, attemptId: string) {
     const states = { ...s.states };
     if (session) states[attemptId] = session.state;
     else delete states[attemptId];
-    return { states, index: localAttempts.listAttempts() };
+    return { states, index: store.listAttempts() };
   });
+}
+
+/**
+ * Loads the attempts of the signed-in user (null: signed out). The previous user's stay on the
+ * device under their own keys, and are uploaded when they sign in again. No-op for the same user.
+ */
+export function activateAttemptUser(userId: string | null) {
+  if (userId === owner) return;
+  for (const session of sessions.values()) session.checkpoint();
+  sessions.clear();
+  owner = userId;
+  store = createLocalStore(storage, userId ? attemptPrefix(userId) : 'signed-out:');
+  deps = depsOf(store);
+  if (userId && storage.getString(ADOPTED_KEY) === undefined) {
+    adoptUnownedAttempts(storage, attemptPrefix(userId));
+    storage.set(ADOPTED_KEY, userId);
+  }
+  useAttemptSessionsStore.setState({ states: {}, index: store.listAttempts() });
+}
+
+/** Forgets every attempt the user kept on this device (account deleted). */
+export function clearAttemptUser(userId: string) {
+  createLocalStore(storage, attemptPrefix(userId)).clear();
+  if (owner === userId) {
+    sessions.clear();
+    useAttemptSessionsStore.setState({ states: {}, index: [] });
+  }
 }
 
 /**
@@ -65,7 +110,7 @@ export function getSession(attemptId: string): AttemptSession | null {
 }
 
 export const hasLocalSession = (attemptId: string) =>
-  sessions.has(attemptId) || localAttempts.hasSession(attemptId);
+  sessions.has(attemptId) || store.hasSession(attemptId);
 
 /** Starts keeping a sectioned attempt on the device, from the server's view of it. */
 export function sessionFromView(view: AttemptView): AttemptSession {
@@ -127,14 +172,13 @@ export function sessionFromView(view: AttemptView): AttemptSession {
  */
 export function replaceSession(view: AttemptView): AttemptSession {
   sessions.delete(view.id);
-  localAttempts.remove(view.id);
+  store.remove(view.id);
   const session = sessionFromView(view);
   publish(session, view.id);
   return session;
 }
 
-export const loadSnapshot = (attemptId: string) =>
-  localAttempts.loadSnapshot<AttemptSnapshot>(attemptId);
+export const loadSnapshot = (attemptId: string) => store.loadSnapshot<AttemptSnapshot>(attemptId);
 
 /** Records a user action on the attempt; false when the rules refuse it. */
 export function dispatchAttempt(attemptId: string, input: EventInput): boolean {
@@ -157,7 +201,7 @@ export function withSession<T>(attemptId: string, fn: (session: AttemptSession) 
 /** The server has everything: forget the attempt on the device. */
 export function forgetSession(attemptId: string) {
   sessions.delete(attemptId);
-  localAttempts.remove(attemptId);
+  store.remove(attemptId);
   publish(null, attemptId);
 }
 

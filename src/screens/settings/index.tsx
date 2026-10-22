@@ -4,6 +4,7 @@ import {
   CloudCheck,
   CloudUpload,
   Flag,
+  GraduationCap,
   Info,
   Lock,
   LogOut,
@@ -22,7 +23,9 @@ import { pendingUploadCount, syncAllAttemptsNow } from '@/api/attempt-sync';
 import { useAttempts } from '@/api/attempts';
 import { useLogout, useLogoutAll, useMe } from '@/api/auth';
 import { describeError } from '@/api/errors';
+import { flushLegacyOutbox, pendingLegacyCount } from '@/api/legacy-outbox';
 import { useReportExams } from '@/api/reports';
+import { syncUserStateNow } from '@/api/user-state-sync';
 import { syncVocab } from '@/api/vocab-sync';
 import { BrandCard } from '@/components/app/brand';
 import { confirm } from '@/components/app/confirm';
@@ -43,6 +46,7 @@ import {
   useSettingsStore,
 } from '@/stores/settings-store';
 import { useSyncStatusStore } from '@/stores/sync-status-store';
+import { usePendingUserStateCount } from '@/stores/user-state-store';
 import { usePendingVocabCount } from '@/stores/vocab-store';
 import { countByDay, currentStreak } from '@/utils/activity';
 
@@ -280,13 +284,19 @@ function SyncGroup() {
   useLocalAttempts();
   const lastSyncedAt = useSyncStatusStore((s) => s.lastSyncedAt);
   const [state, setState] = useState<'idle' | 'running' | 'done' | 'offline'>('idle');
-  const pending = pendingUploadCount();
+  const pending = pendingUploadCount() + pendingLegacyCount();
   const vocabPending = usePendingVocabCount();
+  const userStatePending = usePendingUserStateCount();
 
   const syncNow = async () => {
     setState('running');
-    const [outcomes] = await Promise.all([syncAllAttemptsNow(), syncVocab()]);
-    setState(outcomes.includes('OFFLINE') ? 'offline' : 'done');
+    const [outcomes, legacy] = await Promise.all([
+      syncAllAttemptsNow(),
+      flushLegacyOutbox(),
+      syncVocab(),
+      syncUserStateNow(),
+    ]);
+    setState([...outcomes, ...legacy].includes('OFFLINE') ? 'offline' : 'done');
   };
 
   const last =
@@ -321,7 +331,7 @@ function SyncGroup() {
             </Button>
           )
         }
-        hasDivider={vocabPending > 0}
+        hasDivider={vocabPending > 0 || userStatePending > 0}
       />
       {vocabPending > 0 ? (
         <SettingsRow
@@ -329,6 +339,14 @@ function SyncGroup() {
           tone="amber"
           title={t('settings.vocabPending', { count: vocabPending })}
           to="/vocab"
+          hasDivider={userStatePending > 0}
+        />
+      ) : null}
+      {userStatePending > 0 ? (
+        <SettingsRow
+          icon={GraduationCap}
+          tone="amber"
+          title={t('settings.practicePending', { count: userStatePending })}
         />
       ) : null}
     </SettingsGroup>

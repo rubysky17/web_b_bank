@@ -12,6 +12,33 @@ export type AnswerChange = {
   timeSpentMs?: number;
 };
 
+/** An answer change waiting on the device to be saved (LEGACY attempts, see `legacy-outbox.ts`). */
+export type QueuedChange = AnswerChange & {
+  /** Device clock of the latest change folded in: an older one never overwrites a newer save. */
+  clientUpdatedAt: number;
+};
+
+/**
+ * Folds a new change into what waits for the same question: the newest answer and flag win, time
+ * spent adds up. Keeps one change per question however long the device stays offline.
+ */
+export function queueChange(
+  queued: QueuedChange | undefined,
+  change: AnswerChange,
+  now: number,
+): QueuedChange {
+  const timeSpentMs = (queued?.timeSpentMs ?? 0) + (change.timeSpentMs ?? 0);
+  return {
+    attemptQuestionId: change.attemptQuestionId,
+    ...(queued?.response !== undefined ? { response: queued.response } : {}),
+    ...(queued?.flagged !== undefined ? { flagged: queued.flagged } : {}),
+    ...(change.response !== undefined ? { response: change.response } : {}),
+    ...(change.flagged !== undefined ? { flagged: change.flagged } : {}),
+    ...(timeSpentMs > 0 ? { timeSpentMs } : {}),
+    clientUpdatedAt: Math.max(Math.round(now), (queued?.clientUpdatedAt ?? 0) + 1),
+  };
+}
+
 type ViewLike<Q> = {
   answeredCount: number;
   flaggedCount: number;
